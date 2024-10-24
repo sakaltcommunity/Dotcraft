@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>テラリア風ゲーム</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+    <style>
+        .control-btn {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: lightgray;
+            border: 1px solid black;
+            cursor: pointer;
+        }
+        #up { top: 400px; left: 100px; }
+        #down { top: 500px; left: 100px; }
+        #left { top: 450px; left: 50px; }
+        #right { top: 450px; left: 150px; }
+        #useMeha { top: 450px; left: 300px; }
+        #useHyaffor { top: 450px; left: 400px; }
+        #mp { top: 10px; left: 10px; color: white; font-size: 24px; }
+        #hp { top: 50px; left: 10px; color: white; font-size: 24px; }
+    </style>
+</head>
+<body>
+    <div id="up" class="control-btn">↑</div>
+    <div id="down" class="control-btn">↓</div>
+    <div id="left" class="control-btn">←</div>
+    <div id="right" class="control-btn">→</div>
+    <div id="useMeha" class="control-btn">メハ</div>
+    <div id="useHyaffor" class="control-btn">ヒャフォル</div>
+    <div id="mp">MP: 100</div>
+    <div id="hp">HP: 100</div>
+
+    <script>
+        var config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 300 },
+                    debug: false
+                }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+
+        var player;
+        var cursors;
+        var greenMob;
+        var orangeMob;
+        var projectiles;
+        var hp = 100;  // プレイヤーの初期HP
+        var mp = 100;  // 初期MP
+        var maxMP = 100;
+        var mpRegenRate = 1;  // MP回復速度
+
+        var mobs = {
+            "greenMob": { "hp": 50, "damage": 10, "speed": 200, "image": "greenMob" },
+            "orangeMob": { "hp": 999, "damage": 0, "speed": 0, "image": "orangeMob" }
+        };
+
+        var items = {
+            "meha": { "type": "magic", "damage": 20, "radius": 100, "image": "mehaImage" },
+            "hyaffor": { "type": "magic", "damage": 30, "radius": 150, "image": "hyafforImage", "mpCost": 30 }
+        };
+
+        var game = new Phaser.Game(config);
+
+        function preload() {
+            // SVG画像をロード
+            this.load.svg('mehaImage', 'image/meha.svg');
+            this.load.svg('hyafforImage', 'image/hyaffor.svg');
+            this.load.svg('block', 'image/red_block.svg');   // プレイヤー（赤）
+            this.load.svg('greenMob', 'image/block.svg');  // 緑のモブ（遠距離攻撃）
+            this.load.svg('orangeMob', 'image/orange_block.svg');  // オレンジのモブ（何もしない）
+            this.load.svg('projectile', 'image/projectile.svg');  // 緑モブの弾
+        }
+
+        function create() {
+            // プレイヤー（赤）
+            player = this.physics.add.sprite(100, 450, 'block');
+            player.setCollideWorldBounds(true);
+
+            // 緑モブ（遠距離攻撃）
+            greenMob = this.physics.add.sprite(600, 450, 'greenMob');
+            greenMob.setCollideWorldBounds(true);
+
+            // オレンジモブ（何もしない）
+            orangeMob = this.physics.add.sprite(400, 450, 'orangeMob');
+            orangeMob.setCollideWorldBounds(true);
+
+            // プレイヤーの弾
+            projectiles = this.physics.add.group();
+
+            // 緑モブが遠距離攻撃（弾を撃つ）
+            this.time.addEvent({
+                delay: 2000,
+                callback: function() {
+                    shootProjectile(greenMob, player);
+                },
+                loop: true
+            });
+
+            // 弾がプレイヤーに当たったときの処理
+            this.physics.add.overlap(player, projectiles, function(player, projectile) {
+                takeDamage(10);  // 弾が当たるとプレイヤーが10ダメージを受ける
+                projectile.destroy();  // 弾を消す
+            }, null, this);
+
+            // メハボタンのイベント
+            document.getElementById('useMeha').addEventListener('mousedown', function() {
+                useItem('meha');
+            });
+
+            // ヒャフォルボタンのイベント
+            document.getElementById('useHyaffor').addEventListener('mousedown', function() {
+                if (mp >= items.hyaffor.mpCost) {
+                    useItem('hyaffor');
+                    mp -= items.hyaffor.mpCost;
+                    updateMP();
+                }
+            });
+
+            cursors = this.input.keyboard.createCursorKeys();
+
+            // MP回復処理
+            this.time.addEvent({
+                delay: 1000,  // 毎秒MP回復
+                callback: function() {
+                    if (mp < maxMP) {
+                        mp += mpRegenRate;
+                        if (mp > maxMP) mp = maxMP;
+                        updateMP();
+                    }
+                },
+                loop: true
+            });
+        }
+
+        function update() {
+            // プレイヤーの移動
+            if (cursors.left.isDown) {
+                player.setVelocityX(-160);
+            } else if (cursors.right.isDown) {
+                player.setVelocityX(160);
+            } else {
+                player.setVelocityX(0);
+            }
+
+            if (cursors.up.isDown && player.body.touching.down) {
+                player.setVelocityY(-330);
+            }
+        }
+
+        function shootProjectile(fromMob, toPlayer) {
+            // 緑モブがプレイヤーに向かって弾を撃つ
+            var projectile = projectiles.create(fromMob.x, fromMob.y, 'projectile');
+            this.physics.moveToObject(projectile, toPlayer, 200);
+        }
+
+        function takeDamage(amount) {
+            hp -= amount;
+            if (hp <= 0) {
+                console.log('プレイヤーがやられました');
+                player.setTint(0xff0000);  // プレイヤーがやられた場合の表示
+                player.setVelocity(0, 0);
+                player.body.enable = false;
+            }
+            updateHP();
+        }
+
+        function useItem(itemName) {
+            var item = items[itemName];
+            var itemSprite = this.add.image(player.x, player.y, item.image);
+
+            // 範囲内のモブにダメージ
+            [greenMob, orangeMob].forEach(function(mob) {
+                var distance = Phaser.Math.Distance.Between(player.x, player.y, mob.x, mob.y);
+                if (distance <= item.radius) {
+                    mobs[mob.texture.key].hp -= item.damage;
+                    console.log(mob.texture.key + ' のモブが ' + item.damage + ' ダメージを受けました。HP: ' + mobs[mob.texture.key].hp);
+                    if (mobs[mob.texture.key].hp <= 0) {
+                        mob.destroy();
+                        console.log(mob.texture.key + ' が倒されました。');
+                    }
+                }
+            });
+
+            // アイテムを表示後、1秒後に削除
+            this.time.delayedCall(1000, function() {
+                itemSprite.destroy();
+            }, [], this);
+        }
+
+        function updateMP() {
+            document.getElementById('mp').innerText = 'MP: ' + mp;
+        }
+
+        function updateHP() {
+            document.getElementById('hp').innerText = 'HP: ' + hp;
+        }
+    </script>
+</body>
+</html>
