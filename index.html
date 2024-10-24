@@ -41,7 +41,7 @@
             physics: {
                 default: 'arcade',
                 arcade: {
-                    gravity: { y: 300 },
+                    gravity: { y: 0 }, // 重力を無効にする
                     debug: false
                 }
             },
@@ -143,6 +143,16 @@
                 },
                 loop: true
             });
+
+            // モブがランダムに移動する処理
+            this.time.addEvent({
+                delay: 1000,  // 1秒ごと
+                callback: function() {
+                    moveMob(greenMob);
+                    moveMob(orangeMob);
+                },
+                loop: true
+            });
         }
 
         function update() {
@@ -175,6 +185,13 @@
                 player.body.enable = false;
             }
             updateHP();
+        }
+
+        function moveMob(mob) {
+            // モブをランダムに移動させる
+            var newX = Phaser.Math.Between(50, 750);
+            var newY = Phaser.Math.Between(50, 550);
+            mob.setPosition(newX, newY);
         }
 
         function useItem(itemName) {
