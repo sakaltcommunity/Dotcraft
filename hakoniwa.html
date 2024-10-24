@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>箱庭バージョン</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #f0f0f0;
+        }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #e0e0e0;
+            border: 2px solid #333;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .controls select {
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <label for="cpu1-weapon">CPU 1 武器:</label>
+        <select id="cpu1-weapon">
+            <option value="剣">剣</option>
+            <option value="レーザーガン">レーザーガン</option>
+            <option value="マーカー">マーカー</option>
+            <option value="バッシャー">バッシャー</option>
+            <option value="スピナー">スピナー</option>
+            <option value="シャープアルコールマーカー">シャープアルコールマーカー</option>
+            <option value="ラインマーカー">ラインマーカー</option>
+            <option value="トライデント">トライデント</option>
+            <option value="星">星</option>
+            <option value="軌道銃">軌道銃</option>
+        </select>
+
+        <label for="cpu2-weapon">CPU 2 武器:</label>
+        <select id="cpu2-weapon">
+            <option value="剣">剣</option>
+            <option value="レーザーガン">レーザーガン</option>
+            <option value="マーカー">マーカー</option>
+            <option value="バッシャー">バッシャー</option>
+            <option value="スピナー">スピナー</option>
+            <option value="シャープアルコールマーカー">シャープアルコールマーカー</option>
+            <option value="ラインマーカー">ラインマーカー</option>
+            <option value="トライデント">トライデント</option>
+            <option value="星">星</option>
+            <option value="軌道銃">軌道銃</option>
+        </select>
+
+        <label for="cpu3-weapon">CPU 3 武器:</label>
+        <select id="cpu3-weapon">
+            <option value="剣">剣</option>
+            <option value="レーザーガン">レーザーガン</option>
+            <option value="マーカー">マーカー</option>
+            <option value="バッシャー">バッシャー</option>
+            <option value="スピナー">スピナー</option>
+            <option value="シャープアルコールマーカー">シャープアルコールマーカー</option>
+            <option value="ラインマーカー">ラインマーカー</option>
+            <option value="トライデント">トライデント</option>
+            <option value="星">星</option>
+            <option value="軌道銃">軌道銃</option>
+        </select>
+
+        <label for="cpu4-weapon">CPU 4 武器:</label>
+        <select id="cpu4-weapon">
+            <option value="剣">剣</option>
+            <option value="レーザーガン">レーザーガン</option>
+            <option value="マーカー">マーカー</option>
+            <option value="バッシャー">バッシャー</option>
+            <option value="スピナー">スピナー</option>
+            <option value="シャープアルコールマーカー">シャープアルコールマーカー</option>
+            <option value="ラインマーカー">ラインマーカー</option>
+            <option value="トライデント">トライデント</option>
+            <option value="星">星</option>
+            <option value="軌道銃">軌道銃</option>
+        </select>
+
+        <button id="startButton">スタート</button>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const inkMap = [];
+
+        const weapons = {
+            '剣': { fireRate: 100, power: 10, ink: 20, shape: 'circle', range: 100 },
+            'レーザーガン': { fireRate: 200, power: 20, ink: 10, shape: 'circle', range: 200 },
+            'マーカー': { fireRate: 300, power: 5, ink: 30, shape: 'circle', range: 150 },
+            'バッシャー': { fireRate: 150, power: 15, ink: 15, shape: 'circle', range: 120 },
+            'スピナー': { fireRate: 160, power: 10, ink: 50, shape: 'circle', range: 180 },
+            'シャープアルコールマーカー': { fireRate: 250, power: 25, ink: 25, shape: 'circle', range: 200 },
+            'ラインマーカー': { fireRate: 150, power: 10, ink: 30, shape: 'line', range: 150 },
+            'トライデント': { fireRate: 300, power: 25, ink: 40, shape: 'trident', range: 150 },
+            '星': { fireRate: 400, power: 30, ink: 20, shape: 'star', range: 100 },
+            '軌道銃': { fireRate: 390, power: 12, ink: 18, shape: 'star', range: 300 }
+        };
+
+        const cpuUnits = [
+            { x: 100, y: 100, size: 20, color: 'blue', team: 'blue', weapon: '剣', hp: 100, shootCooldown: 0 },
+            { x: 300, y: 100, size: 20, color: 'red', team: 'red', weapon: 'レーザーガン', hp: 100, shootCooldown: 0 },
+            { x: 100, y: 300, size: 20, color: 'green', team: 'green', weapon: 'マーカー', hp: 100, shootCooldown: 0 },
+            { x: 300, y: 300, size: 20, color: 'yellow', team: 'yellow', weapon: 'バッシャー', hp: 100, shootCooldown: 0 }
+        ];
+
+        let selectedWeapons = ['剣', 'レーザーガン', 'マーカー', 'バッシャー'];
+
+        function resetCpu(unit, index) {
+            unit.hp = 100;
+            unit.x = (index % 2 === 0 ? 100 : 300);
+            unit.y = (index < 2 ? 100 : 300);
+            unit.weapon = selectedWeapons[index];
+        }
+
+        function drawUnit(unit) {
+            if (unit.hp > 0) {
+                ctx.beginPath();
+                ctx.arc(unit.x, unit.y, unit.size, 0, Math.PI * 2);
+                ctx.fillStyle = unit.color;
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        function drawInk() {
+            inkMap.forEach(ink => {
+                ctx.beginPath();
+                if (ink.shape === 'circle') {
+                    ctx.arc(ink.x, ink.y, ink.size, 0, Math.PI * 2);
+                } else if (ink.shape === 'line') {
+                    ctx.moveTo(ink.x - ink.size, ink.y);
+                    ctx.lineTo(ink.x + ink.size, ink.y);
+                } else if (ink.shape === 'trident') {
+                    ctx.moveTo(ink.x, ink.y);
+                    ctx.lineTo(ink.x - ink.size / 2, ink.y - ink.size);
+                    ctx.lineTo(ink.x + ink.size / 2, ink.y - ink.size);
+                    ctx.closePath();
+                    ctx.moveTo(ink.x, ink.y);
+                    ctx.lineTo(ink.x - ink.size / 4, ink.y - ink.size * 1.5);
+                    ctx.lineTo(ink.x + ink.size / 4, ink.y - ink.size * 1.5);
+                }
+                ctx.fillStyle = ink.color;
+                ctx.fill();
+            });
+        }
+
+        function updateCpuPositions() {
+            cpuUnits.forEach(unit => {
+                if (unit.hp > 0) {
+                    unit.x += (Math.random() - 0.5) * 2;
+                    unit.y += (Math.random() - 0.5) * 2;
+                }
+            });
+        }
+
+        function handleCpuShooting() {
+            cpuUnits.forEach((unit, index) => {
+                if (unit.hp > 0 && unit.shootCooldown <= 0) {
+                    const weapon = weapons[unit.weapon];
+                    cpuUnits.forEach(target => {
+                        if (unit !== target && target.hp > 0) {
+                            const distance = Math.hypot(unit.x - target.x, unit.y - target.y);
+                            if (distance < weapon.range) {
+                                target.hp -= weapon.power;
+                                inkMap.push({
+                                    x: target.x,
+                                    y: target.y,
+                                    size: weapon.ink,
+                                    color: unit.color,
+                                    shape: weapon.shape
+                                });
+                                unit.shootCooldown = weapon.fireRate;
+                            }
+                        }
+                    });
+                } else {
+                    unit.shootCooldown--;
+                }
+            });
+        }
+
+        function updateGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawInk();
+            cpuUnits.forEach(drawUnit);
+            updateCpuPositions();
+            handleCpuShooting();
+            requestAnimationFrame(updateGame);
+        }
+
+        document.getElementById('startButton').addEventListener('click', () => {
+            selectedWeapons[0] = document.getElementById('cpu1-weapon').value;
+            selectedWeapons[1] = document.getElementById('cpu2-weapon').value;
+            selectedWeapons[2] = document.getElementById('cpu3-weapon').value;
+            selectedWeapons[3] = document.getElementById('cpu4-weapon').value;
+            cpuUnits.forEach(resetCpu);
+            updateGame();
+        });
+    </script>
+</body>
+</html>
