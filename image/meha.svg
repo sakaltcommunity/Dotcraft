@@ -6,6 +6,9 @@
       <stop offset="100%" style="stop-color:orange; stop-opacity:0.2" />
     </linearGradient>
   </defs>
-  <path d="M100,100 C150,50 150,150 200,100" stroke="url(#lightGradient)" stroke-width="10" fill="none" />
-  <path d="M100,100 C50,50 50,150 0,100" stroke="url(#lightGradient)" stroke-width="10" fill="none" />
+  <path d="M100,100 L200,100" stroke="url(#lightGradient)" stroke-width="10" stroke-linecap="round" />
+  <path d="M100,100 L150,50" stroke="url(#lightGradient)" stroke-width="10" stroke-linecap="round" />
+  <path d="M100,100 L150,150" stroke="url(#lightGradient)" stroke-width="10" stroke-linecap="round" />
+  <path d="M100,100 L50,50" stroke="url(#lightGradient)" stroke-width="10" stroke-linecap="round" />
+  <path d="M100,100 L50,150" stroke="url(#lightGradient)" stroke-width="10" stroke-linecap="round" />
 </svg>
