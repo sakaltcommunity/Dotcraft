@@ -19,6 +19,7 @@
         #right { top: 450px; left: 150px; }
         #useMeha { top: 450px; left: 300px; }
         #useHyaffor { top: 450px; left: 400px; }
+        #useWoodSword { top: 450px; left: 500px; } <!-- 木の剣ボタン -->
         #mp { top: 10px; left: 10px; color: white; font-size: 24px; }
         #hp { top: 50px; left: 10px; color: white; font-size: 24px; }
     </style>
@@ -30,6 +31,7 @@
     <div id="right" class="control-btn">→</div>
     <div id="useMeha" class="control-btn">メハ</div>
     <div id="useHyaffor" class="control-btn">ヒャフォル</div>
+    <div id="useWoodSword" class="control-btn">木の剣</div>
     <div id="mp">MP: 100</div>
     <div id="hp">HP: 100</div>
 
@@ -57,10 +59,22 @@
         var greenMob;
         var orangeMob;
         var projectiles;
-        var hp = 100;  // プレイヤーの初期HP
-        var mp = 100;  // 初期MP
+        var hp = 100;
+        var mp = 100;
         var maxMP = 100;
-        var mpRegenRate = 1;  // MP回復速度
+        var mpRegenRate = 1;
+
+        var lastUsedTime = {
+            meha: 0,
+            hyaffor: 0,
+            woodSword: 0
+        };
+
+        var cooldowns = {
+            meha: 2400, // メハは5秒のクールダウン
+            hyaffor: 6000, // ヒャフォルは8秒のクールダウン
+            woodSword: 0 // 木の剣はクールダウンなし
+        };
 
         var mobs = {
             "greenMob": { "hp": 50, "damage": 10, "speed": 200, "image": "greenMob" },
@@ -69,7 +83,8 @@
 
         var items = {
             "meha": { "type": "magic", "damage": 20, "radius": 100, "image": "mehaImage" },
-            "hyaffor": { "type": "magic", "damage": 30, "radius": 150, "image": "hyafforImage", "mpCost": 30 }
+            "hyaffor": { "type": "magic", "damage": 30, "radius": 150, "image": "hyafforImage", "mpCost": 30 },
+            "woodSword": { "type": "weapon", "damage": 5, "radius": 50, "image": "woodSwordImage" }
         };
 
         var game = new Phaser.Game(config);
@@ -78,6 +93,7 @@
             // SVG画像をロード
             this.load.svg('mehaImage', 'image/meha.svg');
             this.load.svg('hyafforImage', 'image/hyaffor.svg');
+            this.load.svg('woodSwordImage', 'image/wood_sword.svg'); // 木の剣画像
             this.load.svg('block', 'image/red_block.svg');   // プレイヤー（赤）
             this.load.svg('greenMob', 'image/block.svg');  // 緑のモブ（遠距離攻撃）
             this.load.svg('orangeMob', 'image/orange_block.svg');  // オレンジのモブ（何もしない）
@@ -85,22 +101,17 @@
         }
 
         function create() {
-            // プレイヤー（赤）
             player = this.physics.add.sprite(100, 450, 'block');
             player.setCollideWorldBounds(true);
 
-            // 緑モブ（遠距離攻撃）
             greenMob = this.physics.add.sprite(600, 450, 'greenMob');
             greenMob.setCollideWorldBounds(true);
 
-            // オレンジモブ（何もしない）
             orangeMob = this.physics.add.sprite(400, 450, 'orangeMob');
             orangeMob.setCollideWorldBounds(true);
 
-            // プレイヤーの弾
             projectiles = this.physics.add.group();
 
-            // 緑モブが遠距離攻撃（弾を撃つ）
             this.time.addEvent({
                 delay: 2000,
                 callback: function() {
@@ -109,31 +120,58 @@
                 loop: true
             });
 
-            // 弾がプレイヤーに当たったときの処理
             this.physics.add.overlap(player, projectiles, function(player, projectile) {
-                takeDamage(10);  // 弾が当たるとプレイヤーが10ダメージを受ける
-                projectile.destroy();  // 弾を消す
+                takeDamage(10);
+                projectile.destroy();
             }, null, this);
 
-            // メハボタンのイベント
             document.getElementById('useMeha').addEventListener('mousedown', function() {
-                useItem('meha');
-            });
-
-            // ヒャフォルボタンのイベント
-            document.getElementById('useHyaffor').addEventListener('mousedown', function() {
-                if (mp >= items.hyaffor.mpCost) {
-                    useItem('hyaffor');
-                    mp -= items.hyaffor.mpCost;
-                    updateMP();
+                if (Date.now() - lastUsedTime.meha >= cooldowns.meha) {
+                    useItem('meha');
+                    lastUsedTime.meha = Date.now();
                 }
             });
 
-            cursors = this.input.keyboard.createCursorKeys();
+            document.getElementById('useHyaffor').addEventListener('mousedown', function() {
+                if (mp >= items.hyaffor.mpCost && Date.now() - lastUsedTime.hyaffor >= cooldowns.hyaffor) {
+                    useItem('hyaffor');
+                    mp -= items.hyaffor.mpCost;
+                    updateMP();
+                    lastUsedTime.hyaffor = Date.now();
+                }
+            });
 
-            // MP回復処理
+            document.getElementById('useWoodSword').addEventListener('mousedown', function() {
+                useItem('woodSword');
+            });
+
+            // 上下左右のボタンでプレイヤーを移動
+            document.getElementById('up').addEventListener('mousedown', function() {
+                player.setVelocityY(-160);
+            });
+            document.getElementById('down').addEventListener('mousedown', function() {
+                player.setVelocityY(160);
+            });
+            document.getElementById('left').addEventListener('mousedown', function() {
+                player.setVelocityX(-160);
+            });
+            document.getElementById('right').addEventListener('mousedown', function() {
+                player.setVelocityX(160);
+            });
+
+            // モブが無限にランダムに移動する処理
             this.time.addEvent({
-                delay: 1000,  // 毎秒MP回復
+                delay: 1000,
+                callback: function() {
+                    moveMob(greenMob);
+                    moveMob(orangeMob);
+                },
+                loop: true
+            });
+
+            // MP回復
+            this.time.addEvent({
+                delay: 1000,
                 callback: function() {
                     if (mp < maxMP) {
                         mp += mpRegenRate;
@@ -143,35 +181,25 @@
                 },
                 loop: true
             });
-
-            // モブがランダムに移動する処理
-            this.time.addEvent({
-                delay: 1000,  // 1秒ごと
-                callback: function() {
-                    moveMob(greenMob);
-                    moveMob(orangeMob);
-                },
-                loop: true
-            });
         }
 
         function update() {
-            // プレイヤーの移動
+            // キーボードでもプレイヤーの移動をサポート
+            cursors = this.input.keyboard.createCursorKeys();
             if (cursors.left.isDown) {
                 player.setVelocityX(-160);
             } else if (cursors.right.isDown) {
                 player.setVelocityX(160);
+            } else if (cursors.up.isDown) {
+                player.setVelocityY(-160);
+            } else if (cursors.down.isDown) {
+                player.setVelocityY(160);
             } else {
-                player.setVelocityX(0);
-            }
-
-            if (cursors.up.isDown && player.body.touching.down) {
-                player.setVelocityY(-330);
+                player.setVelocity(0, 0);
             }
         }
 
         function shootProjectile(fromMob, toPlayer) {
-            // 緑モブがプレイヤーに向かって弾を撃つ
             var projectile = projectiles.create(fromMob.x, fromMob.y, 'projectile');
             this.physics.moveToObject(projectile, toPlayer, 200);
         }
@@ -180,25 +208,17 @@
             hp -= amount;
             if (hp <= 0) {
                 console.log('プレイヤーがやられました');
-                player.setTint(0xff0000);  // プレイヤーがやられた場合の表示
+                player.setTint(0xff0000);
                 player.setVelocity(0, 0);
                 player.body.enable = false;
             }
             updateHP();
         }
 
-        function moveMob(mob) {
-            // モブをランダムに移動させる
-            var newX = Phaser.Math.Between(50, 750);
-            var newY = Phaser.Math.Between(50, 550);
-            mob.setPosition(newX, newY);
-        }
-
         function useItem(itemName) {
             var item = items[itemName];
             var itemSprite = this.add.image(player.x, player.y, item.image);
 
-            // 範囲内のモブにダメージ
             [greenMob, orangeMob].forEach(function(mob) {
                 var distance = Phaser.Math.Distance.Between(player.x, player.y, mob.x, mob.y);
                 if (distance <= item.radius) {
@@ -211,10 +231,16 @@
                 }
             });
 
-            // アイテムを表示後、1秒後に削除
             this.time.delayedCall(1000, function() {
                 itemSprite.destroy();
             }, [], this);
+        }
+
+        function moveMob(mob) {
+            var randomX = Phaser.Math.Between(100, 700);
+            var randomY = Phaser.Math.Between(100, 500);
+            mob.setVelocityX(randomX - mob.x);
+            mob.setVelocityY(randomY - mob.y);
         }
 
         function updateMP() {
